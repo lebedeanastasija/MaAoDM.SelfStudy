@@ -3,8 +3,9 @@ var points = [],
 	classes = [],
 	maxDistances = [],
 	centerDistances = [],
-	pointsCount = 15000,
-	coordinateCount = 2;
+	pointsCount = 5000,
+	coordinateCount = 2,
+	isTheSameClasses = true;
 
 var svg;
 
@@ -60,8 +61,6 @@ function onLoad (){
     initializeClassSpace();
     dividePointsToClasses();
     drawClasses();
-    console.log(centers);
-    console.log(points.length);
 }
 
 
@@ -72,21 +71,16 @@ function findNewCenter() {
 		maxDistances.push(findMaxDistanceInClass(classIndex));
 	});
 
-	
-
 	var nextCenterInfo = maxDistances[0];
 	maxDistances.forEach((maxDistanceInfo) => {
 		if(maxDistanceInfo.maxDistance > nextCenterInfo.maxDistances) {
 			nextCenterInfo = maxDistanceInfo;
 		}
 	});
-
 	var am = findArithmeticMeanBetweenCenters();
-	
 	if(nextCenterInfo.maxDistance > findArithmeticMeanBetweenCenters()) {
-		centers.push(points.splice(nextCenterInfo.maxIndex, 1)[0]);
-		console.log(am);
-		console.log(nextCenterInfo.maxDistance);
+		centers.push(nextCenterInfo.maxPoint);
+		points.splice(nextCenterInfo.maxIndex, 1);
 		return true;
 	} else {
 		return false;
@@ -95,32 +89,41 @@ function findNewCenter() {
 
 function findMaxDistanceInClass(classIndex) {
 	var maxDistance = 0,
-		maxIndex = 0;
+		maxIndex = 0,
+		maxPoint;
 	classes[classIndex].forEach(function(point, pointIndex) {
-		if(findDistance(centers[classIndex], point) > maxIndex) {
+		var toCenter = findDistance(centers[classIndex], point);
+		if(toCenter > maxDistance) {
 			maxIndex = pointIndex;
 			maxDistance = findDistance(centers[classIndex], point);
+			maxPoint = point;
 		}
 	});
 	return {
 		maxDistance: maxDistance,
-		maxIndex: maxIndex
+		maxIndex: maxIndex,
+		maxPoint: maxPoint
 	}
 }
 
 function findArithmeticMeanBetweenCenters(){
+	var centerDistancesCount = 0;
+	centerDistances = [];
 	if(centers.length > 1) {
-		centers.forEach((center, centerIndex) => {
-			var tailCenters = centers.slice(centerIndex + 1);
-			tailCenters.forEach((tail, tailIndex) => {
-				centerDistances.push(findDistance(center, tail));
-			});		
-		});
+		for(var i = 0; i < centers.length - 1; i ++) {
+
+			var tails = centers.slice(i+1);
+
+			tails.forEach((centerTail, tailIndex) => {
+				centerDistances.push(findDistance(centers[i], centerTail));
+			});
+		}
+
 		var sum = 0;
 		centerDistances.forEach((distanse) => {
 			sum += distanse;
 		})
-		return sum / (centerDistances.length-1) / 2;
+		return sum / centerDistances.length / 2;
 	} else {
 		return 0;
 	}	
@@ -189,6 +192,7 @@ function drawClasses() {
 	});
 }
 
+/**********************************************/
 
 function nextDistribution(){
 	if(findNewCenter()) {
@@ -198,8 +202,8 @@ function nextDistribution(){
     	drawClasses();
     	console.log(centers);
 	} else {
-		console.log("The end");
-	}		
+		console.log("The end");	
+	}	
 }
 
 function finishDistribution() {
@@ -211,4 +215,66 @@ function finishDistribution() {
     	console.log(centers);
     }
     console.log("The end");
+}
+
+function startKMedium() {
+	isTheSameClasses = false;
+	while(!isTheSameClasses){
+		var newCenters = recalculateCenters();
+		console.log(isTheSameClasses);
+		initializeClassSpace();
+		d3.selectAll("circle").remove();
+		centers = newCenters;
+		dividePointsToClasses();
+	}
+	drawClasses();
+	console.log("The end");
+}
+
+/*********************************************/
+
+function recalculateCenters() {	
+	var newCenters = [];
+
+	isTheSameClasses = true;
+	classes.forEach(function(pointsClass, index) {
+		var vector = [0, 0];
+
+		pointsClass.forEach(function(point) {
+			vector[0] += point[0];
+			vector[1] += point[1];
+		});
+
+		vector[0] = Math.floor(vector[0] / pointsClass.length);
+		vector[1] = Math.floor(vector[1] / pointsClass.length);
+
+		newCenters.push(vector);
+		if(!pointsAreEqual(vector, centers[index])) {
+			isTheSameClasses = false;
+		}
+	});
+
+	return newCenters;
+}
+
+function pointsAreEqual(point1, point2) {
+	var result = true;
+	for(var i = 0; i < coordinateCount; i++){
+		if(point1[i] !== point2[i]) {
+			result = false;
+		}
+	}
+
+	return result;
+}
+
+function isClassCenter(point){
+	var result = false;
+	centers.forEach(function(center) {
+		if(pointsAreEqual(point, center)) {
+			result = true;
+		}
+	});
+	
+	return result;
 }
